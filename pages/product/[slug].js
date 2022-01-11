@@ -1,8 +1,6 @@
-import React from "react";
+import React, { useContext } from "react";
 import NextLink from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/router";
-import data from "../../utils/data";
 import Layout from "../../components/Layout";
 import useStyles from "../../utils/styles";
 import {
@@ -14,12 +12,30 @@ import {
   Card,
   Button,
 } from "@mui/material";
+import Product from "../../models/Products";
+import db from "../../utils/db";
+import axios from "axios";
+import { Store } from "../../utils/Store";
+import { useRouter } from "next/router";
 
-export default function ProductScreen() {
+export default function ProductScreen({ product }) {
   const classes = useStyles();
+  const { dispatch } = useContext(Store);
   const router = useRouter();
-  const { slug } = router.query;
-  const product = data.products.find((a) => a.slug === slug);
+
+  const addToCartHandler = async () => {
+    const { data } = await axios.get(`/api/products/${product._id}`);
+    if (data.countInStock < 1) {
+      window.alert("Sorry. Product Out of Stock");
+      return;
+    }
+    dispatch({
+      type: "CART_ADD_ITEM",
+      payload: { ...product, quanitity: 1 },
+    });
+    router.push("/cart");
+  };
+
   if (!product) {
     return <div>Product Not Found</div>;
   }
@@ -32,15 +48,17 @@ export default function ProductScreen() {
           </Link>
         </NextLink>
       </div>
-      <Grid container spacing={1}>
-        <Grid item md={6} xs={12}>
-          <Image
-            src={product.image}
-            alt={product.name}
-            width={640}
-            height={640}
-            layout="responsive"
-          ></Image>
+      <Grid container spacing={1} direction="row" justifyContent="center">
+        <Grid item md={6} sm={8} xs={12}>
+          <Grid>
+            <Image
+              src={product.image}
+              alt={product.name}
+              width={640}
+              height={640}
+              layout="responsive"
+            ></Image>
+          </Grid>
         </Grid>
         <Grid item md={3} xs={12}>
           <List>
@@ -91,7 +109,12 @@ export default function ProductScreen() {
                 </Grid>
               </ListItem>
               <ListItem>
-                <Button fullWidth variant="contained" color="primary">
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="primary"
+                  onClick={addToCartHandler}
+                >
                   Add to cart
                 </Button>
               </ListItem>
@@ -101,4 +124,15 @@ export default function ProductScreen() {
       </Grid>
     </Layout>
   );
+}
+
+export async function getServerSideProps(context) {
+  const { slug } = context.params;
+  await db.connect();
+  const product = await Product.findOne({ slug }).lean();
+  return {
+    props: {
+      product: product ? db.convertDocToObj(product) : false,
+    },
+  };
 }
