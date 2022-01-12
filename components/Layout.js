@@ -36,12 +36,12 @@ export default function Layout({ title, description, children }) {
     },
     palette: {
       mode: darkMode ? "dark" : "light",
-      primary: {
-        main: "#f0c000",
-      },
-      secondary: {
-        main: "#208080",
-      },
+      // primary: {
+      //   main: "#f0c000",
+      // },
+      // secondary: {
+      //   main: "#208080",
+      // },
     },
   });
   const classes = useStyles();
