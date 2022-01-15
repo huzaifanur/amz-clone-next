@@ -1,8 +1,6 @@
 import React, { useContext } from "react";
 import NextLink from "next/link";
 import Image from "next/image";
-import Layout from "../../components/Layout";
-import useStyles from "../../utils/styles";
 import {
   Grid,
   Link,
@@ -12,33 +10,34 @@ import {
   Card,
   Button,
 } from "@mui/material";
-import Product from "../../models/Products";
+import Layout from "../../components/Layout";
+import useStyles from "../../utils/styles";
+import Product from "../../models/Product";
 import db from "../../utils/db";
 import axios from "axios";
 import { Store } from "../../utils/Store";
 import { useRouter } from "next/router";
 
-export default function ProductScreen({ product }) {
-  const classes = useStyles();
+export default function ProductScreen(props) {
+  const router = useRouter();
   const { state, dispatch } = useContext(Store);
-
-  const addToCartHandler = async () => {
-    const { data } = await axios.get(`/api/products/${product._id}`);
-    if (data.countInStock < 1) {
-      window.alert("Sorry. Product Out of Stock");
-      return;
-    }
-    const existItem = state.cart.cartItems.find((x) => x._id === product._id);
-    const quantity = existItem ? existItem.quantity + 1 : 1;
-    dispatch({
-      type: "CART_ADD_ITEM",
-      payload: { ...product, quantity },
-    });
-  };
-
+  const { product } = props;
+  const classes = useStyles();
   if (!product) {
     return <div>Product Not Found</div>;
   }
+  const addToCartHandler = async () => {
+    const existItem = state.cart.cartItems.find((x) => x._id === product._id);
+    const quantity = existItem ? existItem.quantity + 1 : 1;
+    const { data } = await axios.get(`/api/products/${product._id}`);
+    if (data.countInStock < quantity) {
+      window.alert("Sorry. Product is out of stock");
+      return;
+    }
+    dispatch({ type: "CART_ADD_ITEM", payload: { ...product, quantity } });
+    router.push("/cart");
+  };
+
   return (
     <Layout title={product.name} description={product.description}>
       <div className={classes.section}>
@@ -48,17 +47,15 @@ export default function ProductScreen({ product }) {
           </Link>
         </NextLink>
       </div>
-      <Grid container spacing={1} direction="row" justifyContent="center">
-        <Grid item md={6} sm={8} xs={12}>
-          <Grid>
-            <Image
-              src={product.image}
-              alt={product.name}
-              width={640}
-              height={640}
-              layout="responsive"
-            ></Image>
-          </Grid>
+      <Grid container spacing={1}>
+        <Grid item md={6} xs={12}>
+          <Image
+            src={product.image}
+            alt={product.name}
+            width={640}
+            height={640}
+            layout="responsive"
+          ></Image>
         </Grid>
         <Grid item md={3} xs={12}>
           <List>
@@ -127,12 +124,15 @@ export default function ProductScreen({ product }) {
 }
 
 export async function getServerSideProps(context) {
-  const { slug } = context.params;
+  const { params } = context;
+  const { slug } = params;
+
   await db.connect();
   const product = await Product.findOne({ slug }).lean();
+  await db.disconnect();
   return {
     props: {
-      product: product ? db.convertDocToObj(product) : false,
+      product: db.convertDocToObj(product),
     },
   };
 }
